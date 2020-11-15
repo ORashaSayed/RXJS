@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
-  "version": 1, 
+  "version": 1,
   "newProjectRoot": "projects",
   "projects": {
     "RXJSDemo": {
@@ -119,6 +119,10 @@
           }
         }
       }
-    }},
-  "defaultProject": "RXJSDemo"
+    }
+  },
+  "defaultProject": "RXJSDemo",
+  "cli": {
+    "analytics": "7cf2b9e2-ef97-4678-8e55-a8f75664e5ac"
+  }
 }

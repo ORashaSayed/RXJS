@@ -8,7 +8,6 @@ import { AppData } from './app-data';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { WelcomeComponent } from './home/welcome.component';
 import { PageNotFoundComponent } from './page-not-found.component';
 
 @NgModule({
@@ -20,7 +19,6 @@ import { PageNotFoundComponent } from './page-not-found.component';
   ],
   declarations: [
     AppComponent,
-    WelcomeComponent,
     PageNotFoundComponent
   ],
   bootstrap: [AppComponent]

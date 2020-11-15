@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { Observable, throwError, combineLatest, BehaviorSubject, Subject, merge, from } from 'rxjs';
+import { catchError, tap, map, scan, shareReplay, mergeMap, toArray, filter, switchMap } from 'rxjs/operators';
 
 import { Product } from './product';
 import { Supplier } from '../suppliers/supplier';
 import { SupplierService } from '../suppliers/supplier.service';
+import { ProductCategoryService } from '../product-categories/product-category.service';
 
 @Injectable({
   providedIn: 'root'
@@ -21,8 +22,97 @@ export class ProductService {
       catchError(this.handleError)
     );
 
+  
+//The combination operators allow the joining of information from multiple observables. 
+//Order, time, and structure of emitted values is the primary variation among these operators.
+
+//use combineLatest combineLatest When any observable emits a value, emit the last emitted value from each.
+
+  productsWithCategory$ = combineLatest([
+    this.products$,
+    this.productCategoryService.productCategories$
+  ]).pipe(
+    map(([products, categories]) =>
+      products.map(product => ({
+        ...product,
+        price: product.price * 1.5,
+        category: categories.find(c => product.categoryId === c.id).name,
+        searchKey: [product.productName]
+      }) as Product)
+    ),
+    shareReplay(1)
+  );
+
+//Subject is a special type of Observable which shares a single execution path among observers.
+
+ //You can think of this as a single speaker talking at a microphone in a room full of people.
+ // Their message (the subject) is being delivered to many (multicast) people (the observers) at once.
+ // This is the basis of multicasting. Typical observables would be comparable to a 1 on 1 conversation.
+
+//  There are 4 variants of subjects:
+// Subject - No initial value or replay behavior.
+// AsyncSubject - Emits latest value to observers upon completion.
+// BehaviorSubject - Requires an initial value and emits its current value (last emitted item) to new subscribers.
+// ReplaySubject - Emits specified number of last emitted values (a replay) to new subscribers.
+
+  private productSelectedSubject = new BehaviorSubject<number>(0);
+  productSelectedAction$ = this.productSelectedSubject.asObservable();
+
+  selectedProduct$ = combineLatest([
+    this.productsWithCategory$,
+    this.productSelectedAction$
+  ])
+    .pipe(
+      map(([products, selectedProductId]) =>
+        products.find(product => product.id === selectedProductId)
+      ),
+      tap(product => console.log('selectedProduct', product)),
+      shareReplay(1)
+    );
+
+  private productInsertedSubject = new Subject<Product>();
+  productInsertedAction$ = this.productInsertedSubject.asObservable();
+
+  productsWithAdd$ = merge(
+    this.productsWithCategory$,
+    this.productInsertedAction$
+  )
+    .pipe(
+      scan((acc: Product[], value: Product) => [...acc, value])
+    );
+
+  // selectedProductSuppliers$ = combineLatest([
+  //   this.selectedProduct$,
+  //   this.supplierService.suppliers$
+  // ]).pipe(
+  //   map(([selectedProduct, suppliers]) =>
+  //     suppliers.filter(supplier => selectedProduct.supplierIds.includes(supplier.id))
+  //   )
+  // );
+
+  selectedProductSuppliers$ = this.selectedProduct$
+    .pipe(
+      filter(selectedProduct => Boolean(selectedProduct)),
+      switchMap(selectedProduct =>
+        from(selectedProduct.supplierIds)
+          .pipe(
+            mergeMap(supplierId => this.http.get<Supplier>(`${this.suppliersUrl}/${supplierId}`)),
+            toArray(),
+            tap(suppliers => console.log('product suppliers', JSON.stringify(suppliers)))
+          )));
+
   constructor(private http: HttpClient,
+              private productCategoryService: ProductCategoryService,
               private supplierService: SupplierService) { }
+
+  selectedProductChanged(selectedProductId: number): void {
+    this.productSelectedSubject.next(selectedProductId);
+  }
+
+  addProduct(newProduct?: Product) {
+    newProduct = newProduct || this.fakeProduct();
+    this.productInsertedSubject.next(newProduct);
+  }
 
   private fakeProduct() {
     return {
